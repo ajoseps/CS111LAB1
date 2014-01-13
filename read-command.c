@@ -7,19 +7,25 @@
 
 //custom includes
 #include <stdio.h>
+#include "alloc.h"
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
 
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
-
+/*
 struct command_stream
 {
+    // Previous Command
+    command* prev_command;
 
+    // Current Command
+    command* curr_command;
 
-
-};
+    // Next Command
+    command* next_command;
+};*/
 
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
@@ -32,8 +38,19 @@ make_command_stream (int (*get_next_byte) (void *),
   int c;
   int count=0;
 
+  int size = sizeof(char) * 100;
+  int curr_size = size;
+
+  char *buffer = checked_malloc( curr_size );
+
   do {
+    if(count == curr_size)
+    {
+        curr_size += size;
+        buffer = checked_realloc(buffer, curr_size);
+    } 
     c=(*get_next_byte)(get_next_byte_argument);
+    buffer[count] = c;
     count++;
   } while (c!=EOF);
 
