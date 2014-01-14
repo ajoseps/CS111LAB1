@@ -53,13 +53,24 @@ make_command_stream (int (*get_next_byte) (void *),
     count++;
   } while (c!=EOF);
 
+  int command_count = count;
+  char* command_buff[size];
+  for(i = 0; i < count; i++)
+  {
+    if(buffer[count] == '\n')
+    {
+    
+    }
+  }
+
   //error (1, 0, "command reading not yet implemented");
+  /*
   printf("CHAR COUNT: %d\n",count);
 
   for(i = 0; i < count; i++)
   {
     printf("%c", buffer[i]);
-  }
+  }*/
   return 0;
 }
 
