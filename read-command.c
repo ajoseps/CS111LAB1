@@ -110,8 +110,21 @@ make_command_stream (int (*get_next_byte) (void *),
         return 0;
       }
     }
+    
+    // Add simple command into postfix array
+    add_to_postfix(buffer);
 
-    /* DO STUFF WITH THE BUFFERS HERE */
+    // Push operator into op buffer (if empty)
+    if(StackIsEmpty(&opStack))
+    {
+      StackPush(&opStack, op_buff);
+    }
+    else
+    {
+      // Pop elements based on precedence
+    }
+
+
 	} while (c!=EOF);
 
   return 0;
@@ -126,6 +139,7 @@ read_command_stream (command_stream_t s)
 }
 
 // HELPER FUNCTIONS
+
 void add_to_array(char** arr, char* element, int* index)
 {
   int i;
