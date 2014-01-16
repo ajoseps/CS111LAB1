@@ -111,7 +111,6 @@ make_command_stream (int (*get_next_byte) (void *),
       }
     }
 
-
     /* DO STUFF WITH THE BUFFERS HERE */
 	} while (c!=EOF);
 
@@ -127,7 +126,6 @@ read_command_stream (command_stream_t s)
 }
 
 // HELPER FUNCTIONS
-
 void add_to_array(char** arr, char* element, int* index)
 {
   int i;
