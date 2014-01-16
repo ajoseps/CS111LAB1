@@ -70,7 +70,7 @@ make_command_stream (int (*get_next_byte) (void *),
   int curr_size = sizeof(char) * 50;
   int op_size = sizeof(char) * 4;
   char *buffer = checked_malloc( curr_size );
-  char *op_buff = checked_malloc( op_size ); 
+  char *op_buff = checked_malloc( op_size );
   int index = 0;
   int op_index = 0;
 	bool prevEscape, prevQuote;
@@ -123,12 +123,11 @@ make_command_stream (int (*get_next_byte) (void *),
       {
         printf("PREVC: %c|\n", prevC);
         printf("C: %c|\n", c);
-
         error(1, 0, "invalid non-simple command");
         return 0;
       }
     }
-    
+
     // Add simple command into postfix array
     add_to_postfix(buffer);
 
@@ -166,6 +165,7 @@ make_command_stream (int (*get_next_byte) (void *),
       free(op_buff);
     }
     printf("END OF ITERATION\n");
+    }
 	} while (c!=EOF);
 
   for( i = 0; i <= pfIndex; i++)
@@ -225,7 +225,7 @@ int precedence_value(char* nonsimple)
   {
     return 1;
   }
-  else if(strcmp(nonsimple, ">") == 0 || strcmp(nonsimple, "<") == 0 || 
+  else if(strcmp(nonsimple, ">") == 0 || strcmp(nonsimple, "<") == 0 ||
           strcmp(nonsimple, "(") == 0 || strcmp(nonsimple, ")") == 0)
   {
     return 0;
@@ -250,9 +250,9 @@ void add_to_array(char** arr, char* element, int* index)
     }
     arr = newArr;
   }
-  
+
   arr[*index] = element;
-  *index++; 
+  *index++;
 }
 
 // Adds specified cstring element to the postfix array
@@ -261,7 +261,7 @@ void add_to_postfix(char* element)
   add_to_array(postfix, element, &pfIndex);
 }
 
-// Converts infix to postfix 
+// Converts infix to postfix
 bool infix_to_postfix(char* simple, char* op)
 {
   add_to_postfix(simple);
@@ -276,7 +276,7 @@ bool infix_to_postfix(char* simple, char* op)
   return false;
 }
 
-// Checks if c contains a space 
+// Checks if c contains a space
 bool check_if_space(char c)
 {
   if(c == ' ')
@@ -310,7 +310,7 @@ void add_to_buff_unfiltered(char* buff, char c, int* index, int* curr_size)
     buff = checked_realloc(buff, *curr_size);
   }
   buff[*index] = c;
-  
+
   tmp = *index;
   tmp++;
   *index = tmp;
