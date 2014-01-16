@@ -27,8 +27,10 @@ struct command_stream
 {
     // Previous Command
     command_t* prev_command;
+
     // Current Command
     command_t* curr_command;
+
     // Next Command
     command_t* next_command;
 };
@@ -41,6 +43,7 @@ make_command_stream (int (*get_next_byte) (void *),
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
   printf("MAKING A COMMAND\n");
+
   // Creates Buffer
   int c;
   int size = sizeof(char) * 100;
@@ -54,26 +57,26 @@ make_command_stream (int (*get_next_byte) (void *),
 		do {
 			c=(*get_next_byte)(get_next_byte_argument);
 			if(c=='\"')
-      {
+	  {
 				add_to_buff_unfiltered(buffer,c,&index,&curr_size);
-        c=(*get_next_byte)(get_next_byte_argument);
-        do {
-          prevEscape=false;
-          prevQuote=false;
-          add_to_buff_unfiltered(buffer,c,&index,&curr_size);
-          if(c=='\"')
-          {
-            prevEscape=true;
-          }
-          else if(c=='\"')
-          {
-            prevQuote=true;
-          }
-          c=(*get_next_byte)(get_next_byte_argument);
-        } while(prevEscape || !prevQuote);
-      }
-      addedToBuff=add_to_buff_filtered(buffer,c,&index,&curr_size);
-    } while(addedToBuff);
+		c=(*get_next_byte)(get_next_byte_argument);
+		do {
+		  prevEscape=false;
+		  prevQuote=false;
+		  add_to_buff_unfiltered(buffer,c,&index,&curr_size);
+		  if(c=='\"')
+		  {
+			prevEscape=true;
+		  }
+		  else if(c=='\"')
+		  {
+			prevQuote=true;
+		  }
+		  c=(*get_next_byte)(get_next_byte_argument);
+		} while(prevEscape || !prevQuote);
+	  }
+	  addedToBuff=add_to_buff_filtered(buffer,c,&index,&curr_size);
+	} while(addedToBuff);
 	} while (c!=EOF);
 
   return 0;
