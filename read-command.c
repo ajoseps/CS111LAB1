@@ -17,7 +17,6 @@
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 
-
 bool add_to_buff_filtered(char*, char, int*, int*);
 void add_to_buff_unfiltered(char*, char, int*, int*);
 bool check_if_nonsimple(char);
@@ -50,13 +49,13 @@ make_command_stream (int (*get_next_byte) (void *),
   int size = sizeof(char) * 100;
   int curr_size = size;
   char *buffer = checked_malloc( curr_size );
-  int count = 0; 
+  int count = 0;
     do {
     if(count == curr_size)
     {
         curr_size += size;
         buffer = checked_realloc(buffer, curr_size);
-    } 
+    }
     c=(*get_next_byte)(get_next_byte_argument);
     buffer[count] = c;
     count++;
@@ -64,7 +63,7 @@ make_command_stream (int (*get_next_byte) (void *),
 
   return 0;
 }
-    
+
 command_t
 read_command_stream (command_stream_t s)
 {
@@ -115,7 +114,7 @@ bool check_if_nonsimple(char c)
   }
 }
 
-// Checks if character is an open paranthesis 
+// Checks if character is an open paranthesis
 bool check_if_open_paren(char c)
 {
   if(c == '(')
