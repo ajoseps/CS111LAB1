@@ -19,6 +19,8 @@
    complete the incomplete type declaration in command.h.  */
 
 
+int precedence_value(char*);
+bool precedence(char*, char*);
 bool check_if_space(char);
 bool add_to_buff_filtered(char*, char, int*, int*);
 void add_to_buff_unfiltered(char*, char, int*, int*);
@@ -119,12 +121,32 @@ make_command_stream (int (*get_next_byte) (void *),
     {
       StackPush(&opStack, op_buff);
     }
+    // If stack is not empty, pop operators according to precedence
     else
     {
-      // Pop elements based on precedence
+      char* lastStackElement = StackPop(&opStack);
+      if(check_if_closed_paren(*lastStackElement))
+      {
+        while(!check_if_open_paren(*lastStackElement))
+        {
+          add_to_postfix(lastStackElement);
+          lastStackElement = StackPop(&opStack);
+        }
+      }
+      else if(precedence(lastStackElement, op_buff))
+      {
+        while(precedence(lastStackElement, op_buff))
+        {
+          add_to_postfix(lastStackElement);
+          lastStackElement = StackPop(&opStack);
+        }
+      }
+      else
+      {
+        StackPush(&opStack, lastStackElement);
+      }
+      StackPush(&opStack, op_buff);
     }
-
-
 	} while (c!=EOF);
 
   return 0;
@@ -140,6 +162,44 @@ read_command_stream (command_stream_t s)
 
 // HELPER FUNCTIONS
 
+// Compares two non-simple commands to see if ns1 has greater than or equal precedence to ns2
+bool precedence(char* ns1, char* ns2)
+{
+  int nsVal1 = precedence_value(ns1);
+  int nsVal2 = precedence_value(ns2);
+
+  if(nsVal1 >= nsVal2)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+// Assigns a precedence value to nonsimple commands
+// MIGHT NOT WORK DUE TO STRING COMPARISON
+int precedence_value(char* nonsimple)
+{
+  if(strcmp(nonsimple, "&&") == 0 || strcmp(nonsimple, "||") == 0)
+  {
+    return 2;
+  }
+  else if(strcmp(nonsimple, "|") == 0 || strcmp(nonsimple, ";") == 0)
+  {
+    return 1;
+  }
+  else if(strcmp(nonsimple, ">") == 0 || strcmp(nonsimple, "<") == 0 || 
+          strcmp(nonsimple, "(") == 0 || strcmp(nonsimple, ")") == 0)
+  {
+    return 0;
+  }
+
+  return -1;
+}
+
+// Adds a cstring element to the specified array
 void add_to_array(char** arr, char* element, int* index)
 {
   int i;
@@ -160,6 +220,7 @@ void add_to_array(char** arr, char* element, int* index)
   *index++; 
 }
 
+// Adds specified cstring element to the postfix array
 void add_to_postfix(char* element)
 {
   add_to_array(postfix, element, &pfIndex);
@@ -178,8 +239,6 @@ bool infix_to_postfix(char* simple, char* op)
   }
   // opStack was not empty, so operator not pushed
   return false;
-  
-
 }
 
 // Checks if c contains a space 
