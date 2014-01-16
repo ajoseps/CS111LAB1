@@ -17,6 +17,8 @@
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 
+
+bool check_if_space(char);
 bool add_to_buff_filtered(char*, char, int*, int*);
 void add_to_buff_unfiltered(char*, char, int*, int*);
 bool check_if_nonsimple(char);
@@ -45,38 +47,60 @@ make_command_stream (int (*get_next_byte) (void *),
   printf("MAKING A COMMAND\n");
 
   // Creates Buffer
-  int c;
-  int size = sizeof(char) * 100;
-  int curr_size = size;
+  int c, prevC;
+  int curr_size = sizeof(char) * 25;
+  int op_size = sizeof(char) * 4;
   char *buffer = checked_malloc( curr_size );
+  char *op_buff = checked_malloc( op_size ); 
   int index = 0;
+  int op_index = 0;
 	bool prevEscape, prevQuote;
 	bool addedToBuff;
 
 	do {
+    // For simple commands
 		do {
 			c=(*get_next_byte)(get_next_byte_argument);
 			if(c=='\"')
-	  {
+	    {
 				add_to_buff_unfiltered(buffer,c,&index,&curr_size);
+		    c=(*get_next_byte)(get_next_byte_argument);
+		    do {
+		      prevEscape=false;
+		      prevQuote=false;
+		      add_to_buff_unfiltered(buffer,c,&index,&curr_size);
+		      if(c=='\\')
+		      {
+			      prevEscape=true;
+		      }
+		      else if(c=='\"')
+		      {
+			      prevQuote=true;
+		      }
+		      c=(*get_next_byte)(get_next_byte_argument);
+		    } while(prevEscape || !prevQuote);
+	    }
+	    addedToBuff=add_to_buff_filtered(buffer,c,&index,&curr_size);
+	  } while(addedToBuff);
+    // For non-simple commands
+    // At this point, c contains a non-simple command or a portion of it
+    add_to_buff_unfiltered(op_buff, c, &op_index, &op_size);
+    prevC = c;
 		c=(*get_next_byte)(get_next_byte_argument);
-		do {
-		  prevEscape=false;
-		  prevQuote=false;
-		  add_to_buff_unfiltered(buffer,c,&index,&curr_size);
-		  if(c=='\"')
-		  {
-			prevEscape=true;
-		  }
-		  else if(c=='\"')
-		  {
-			prevQuote=true;
-		  }
-		  c=(*get_next_byte)(get_next_byte_argument);
-		} while(prevEscape || !prevQuote);
-	  }
-	  addedToBuff=add_to_buff_filtered(buffer,c,&index,&curr_size);
-	} while(addedToBuff);
+    if(!check_if_space(c))
+    {
+      if(prevC == c)
+      {
+        add_to_buff_unfiltered(op_buff, c, &op_index, &op_size);
+      }
+      else
+      {
+        error(1, 0, "invalid non-simple command");
+        return 0;
+      }
+    }
+
+    /* DO STUFF WITH THE BUFFERS HERE */
 	} while (c!=EOF);
 
   return 0;
@@ -92,6 +116,16 @@ read_command_stream (command_stream_t s)
 
 // HELPER FUNCTIONS
 
+// Checks if c contains a space 
+bool check_if_space(char c)
+{
+  if(c == ' ')
+    return true;
+  else
+    return false;
+}
+
+// Adds c to buffer if c is non-simple else returns false
 bool add_to_buff_filtered(char* buff, char c, int* index, int* curr_size)
 {
   if(check_if_nonsimple(c))
@@ -105,6 +139,7 @@ bool add_to_buff_filtered(char* buff, char c, int* index, int* curr_size)
   }
 }
 
+// Adds c to buffer
 void add_to_buff_unfiltered(char* buff, char c, int* index, int* curr_size)
 {
   if(*index == *curr_size)
