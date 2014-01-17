@@ -7,6 +7,7 @@
 
 //custom includes
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include "alloc.h"
@@ -18,7 +19,7 @@
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 
-
+void free_buff(char*, int*);
 void print_cstring(char*);
 int precedence_value(char*);
 bool precedence(char*, char*);
@@ -59,13 +60,14 @@ make_command_stream (int (*get_next_byte) (void *),
 
   //TESTING VARS
   int i;
+  int loops=0;
 
   // Initializes Stack
   StackInit(&opStack, 100);
 
   // Creates Buffer
   int c, prevC;
-  int curr_size = sizeof(char) * 25;
+  int curr_size = sizeof(char) * 50;
   int op_size = sizeof(char) * 4;
   char *buffer = checked_malloc( curr_size );
   char *op_buff = checked_malloc( op_size ); 
@@ -80,11 +82,14 @@ make_command_stream (int (*get_next_byte) (void *),
 			c=(*get_next_byte)(get_next_byte_argument);
 			if(c=='\"')
 	    {
+        printf("ENTERED QUOTES\n");
+        //printf("ADDED %c TO BUFF \n", c);
 				add_to_buff_unfiltered(buffer,c,&index,&curr_size);
 		    c=(*get_next_byte)(get_next_byte_argument);
 		    do {
 		      prevEscape=false;
 		      prevQuote=false;
+          //printf("ADDED %c TO BUFF \n", c);
 		      add_to_buff_unfiltered(buffer,c,&index,&curr_size);
 		      if(c=='\\')
 		      {
@@ -96,12 +101,18 @@ make_command_stream (int (*get_next_byte) (void *),
 		      }
 		      c=(*get_next_byte)(get_next_byte_argument);
 		    } while(prevEscape || !prevQuote);
+        printf("EXITED QUOTES\n");
 	    }
+      printf("INDEX IS: %d \n", index);
 	    addedToBuff=add_to_buff_filtered(buffer,c,&index,&curr_size);
-	  } while(addedToBuff);
+      //print_cstring(buffer);
+	  } while(addedToBuff && c != EOF);
+      printf("\nPRINTING OUT BUFFER: \n");
+      print_cstring(buffer);
     // For non-simple commands
     // At this point, c contains a non-simple command or a portion of it
     add_to_buff_unfiltered(op_buff, c, &op_index, &op_size);
+    printf("\nNONSIMPLE IS REACHED\n");
     prevC = c;
 		c=(*get_next_byte)(get_next_byte_argument);
     if(!check_if_space(c))
@@ -112,8 +123,8 @@ make_command_stream (int (*get_next_byte) (void *),
       }
       else
       {
-        printf("%c\n", prevC);
-        printf("%c\n", c);
+        printf("PREVC: %c|\n", prevC);
+        printf("C: %c|\n", c);
 
         error(1, 0, "invalid non-simple command");
         return 0;
@@ -122,6 +133,10 @@ make_command_stream (int (*get_next_byte) (void *),
     
     // Add simple command into postfix array
     add_to_postfix(buffer);
+    /*
+    printf("THIS IS THE BUFFER ADDDED TO POSTFIX");
+    print_cstring(buffer);
+    */
 
     // Push operator into op buffer (if empty)
     if(StackIsEmpty(&opStack))
@@ -154,6 +169,10 @@ make_command_stream (int (*get_next_byte) (void *),
       }
       StackPush(&opStack, op_buff);
     }
+    free_buff(buffer, &index);
+    free_buff(op_buff, &op_index);
+    printf("MEMORY FREED. BUFFER INDEX IS %d, OPBUFF INDEX IS %d\n", index, op_index);
+    printf("END OF ITERATION\n");
 	} while (c!=EOF);
 
   for( i = 0; i <= pfIndex; i++)
@@ -174,13 +193,20 @@ read_command_stream (command_stream_t s)
 
 // HELPER FUNCTIONS
 
+void free_buff(char* buff, int* index)
+{
+  strcpy(buff, "");
+  *index = 0;
+}
+
 // Prints out cstring to stdout
 void print_cstring(char* cstring)
 {
-  char c = *cstring;
+  int c = *cstring;
   while(c != '\0')
   {
     printf("%c", c);
+    c = *++cstring;
   }
 }
 
@@ -289,13 +315,18 @@ bool add_to_buff_filtered(char* buff, char c, int* index, int* curr_size)
 // Adds c to buffer
 void add_to_buff_unfiltered(char* buff, char c, int* index, int* curr_size)
 {
+  int tmp;
+  //printf("PRINTING CHAR: %c AT INDEX: %d, WITH CURR SIZE: %d\n", c, *index, *curr_size);
   if(*index == *curr_size)
   {
     *curr_size += sizeof(char) * 25;
     buff = checked_realloc(buff, *curr_size);
   }
   buff[*index] = c;
-  *index++;
+  
+  tmp = *index;
+  tmp++;
+  *index = tmp;
 }
 
 // Checks if character is a or part of a non-simple command
