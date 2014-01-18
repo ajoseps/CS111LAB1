@@ -19,8 +19,8 @@
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 
-
-void print_cstring(char*);
+void free_buff(char*, int*);
+void print_cstring(char*, int);
 int precedence_value(char*);
 bool precedence(char*, char*);
 bool check_if_space(char);
@@ -56,7 +56,7 @@ make_command_stream (int (*get_next_byte) (void *),
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
-  printf("MAKING A COMMAND\n");
+  //printf("MAKING A COMMAND\n");
 
   //TESTING VARS
   int i;
@@ -80,9 +80,24 @@ make_command_stream (int (*get_next_byte) (void *),
     // For simple commands
 		do {
 			c=(*get_next_byte)(get_next_byte_argument);
+
+      // For filtering out comments
+      // If # is preceded by NULL, space, or new line
+      // We omit that line from the buffer
+      if(c=='#' && (prevC=='\0' || prevC==' ' || prevC=='\n'))
+      {
+        do
+        {
+          c=(*get_next_byte)(get_next_byte_argument);
+        } while(c!='\n');
+        c=(*get_next_byte)(get_next_byte_argument);
+      }
+
+      // For command substrings in quotes
+      // Place entire quoted substring into buffer
 			if(c=='\"')
 	    {
-        printf("ENTERED QUOTES\n");
+        //printf("ENTERED QUOTES\n");
         //printf("ADDED %c TO BUFF \n", c);
 				add_to_buff_unfiltered(buffer,c,&index,&curr_size);
 		    c=(*get_next_byte)(get_next_byte_argument);
@@ -101,16 +116,20 @@ make_command_stream (int (*get_next_byte) (void *),
 		      }
 		      c=(*get_next_byte)(get_next_byte_argument);
 		    } while(prevEscape || !prevQuote);
-        printf("EXITED QUOTES\n");
+        //printf("EXITED QUOTES\n");
 	    }
+      //printf("INDEX IS: %d \n", index);
 	    addedToBuff=add_to_buff_filtered(buffer,c,&index,&curr_size);
       //print_cstring(buffer);
 	  } while(addedToBuff && c != EOF);
-      print_cstring(buffer);
+      printf("\nPRINTING OUT BUFFER: \n");
+      print_cstring(buffer, index);
+
+
     // For non-simple commands
     // At this point, c contains a non-simple command or a portion of it
     add_to_buff_unfiltered(op_buff, c, &op_index, &op_size);
-    printf("THIS IS REACHED\n");
+    //printf("\nNONSIMPLE IS REACHED\n");
     prevC = c;
 		c=(*get_next_byte)(get_next_byte_argument);
     if(!check_if_space(c))
@@ -127,9 +146,16 @@ make_command_stream (int (*get_next_byte) (void *),
         return 0;
       }
     }
+    
+    // Track previous char to tell whether next # is comment or not
+    prevC=c;
 
     // Add simple command into postfix array
     add_to_postfix(buffer);
+    
+    //printf("THIS IS THE BUFFER ADDED TO POSTFIX");
+    //print_cstring(buffer);
+    
 
     // Push operator into op buffer (if empty)
     if(StackIsEmpty(&opStack))
@@ -142,7 +168,7 @@ make_command_stream (int (*get_next_byte) (void *),
       char* lastStackElement = StackPop(&opStack);
       if(check_if_closed_paren(*lastStackElement))
       {
-        while(!check_if_open_paren(*lastStackElement))
+        while(!check_if_open_paren(*lastStackElement) && !StackIsEmpty(&opStack))
         {
           add_to_postfix(lastStackElement);
           lastStackElement = StackPop(&opStack);
@@ -150,7 +176,7 @@ make_command_stream (int (*get_next_byte) (void *),
       }
       else if(precedence(lastStackElement, op_buff))
       {
-        while(precedence(lastStackElement, op_buff))
+        while(precedence(lastStackElement, op_buff) && !StackIsEmpty(&opStack))
         {
           add_to_postfix(lastStackElement);
           lastStackElement = StackPop(&opStack);
@@ -161,16 +187,16 @@ make_command_stream (int (*get_next_byte) (void *),
         StackPush(&opStack, lastStackElement);
       }
       StackPush(&opStack, op_buff);
-      free(buffer);
-      free(op_buff);
     }
-    printf("END OF ITERATION\n");
-    }
+    free_buff(buffer, &index);
+    free_buff(op_buff, &op_index);
+    //printf("MEMORY FREED. BUFFER INDEX IS %d, OPBUFF INDEX IS %d\n", index, op_index);
+    //printf("END OF ITERATION\n");
 	} while (c!=EOF);
 
   for( i = 0; i <= pfIndex; i++)
   {
-    print_cstring(postfix[i]);
+    print_cstring(postfix[i],sizeof(postfix[i])-1);
   }
 
   return 0;
@@ -186,11 +212,23 @@ read_command_stream (command_stream_t s)
 
 // HELPER FUNCTIONS
 
+void free_buff(char* buff, int* index)
+{
+  int i;
+  for(i = 0; i <= *index ; i++)
+  {
+    *buff = '\0';
+    buff++;
+  }
+  *index = 0;
+}
+
 // Prints out cstring to stdout
-void print_cstring(char* cstring)
+void print_cstring(char* cstring, int index)
 {
   int c = *cstring;
-  while(c != '\0')
+  int i;
+  for(i = 0; i < index ; i++)
   {
     printf("%c", c);
     c = *++cstring;
@@ -237,7 +275,7 @@ int precedence_value(char* nonsimple)
 // Adds a cstring element to the specified array
 void add_to_array(char** arr, char* element, int* index)
 {
-  int i;
+  int i,tmpIndex;
   char* tmp = NULL;
   int arrSize = sizeof(arr);
   if(*index==arrSize)
@@ -251,8 +289,14 @@ void add_to_array(char** arr, char* element, int* index)
     arr = newArr;
   }
 
-  arr[*index] = element;
+  tmp = checked_malloc( sizeof(element) );
+  strcpy(tmp, element);
+  arr[*index] = tmp;
+
   *index++;
+  //(*index)++;
+  //tmpIndex = *index;
+  //*index = tmpIndex+1;
 }
 
 // Adds specified cstring element to the postfix array
@@ -310,7 +354,6 @@ void add_to_buff_unfiltered(char* buff, char c, int* index, int* curr_size)
     buff = checked_realloc(buff, *curr_size);
   }
   buff[*index] = c;
-
   tmp = *index;
   tmp++;
   *index = tmp;
