@@ -125,7 +125,7 @@ make_command_stream (int (*get_next_byte) (void *),
       printf("\nPRINTING OUT BUFFER: \n");
       print_cstring(buffer, index);
 
-
+	  
     // For non-simple commands
     // At this point, c contains a non-simple command or a portion of it
     add_to_buff_unfiltered(op_buff, c, &op_index, &op_size);
@@ -152,8 +152,12 @@ make_command_stream (int (*get_next_byte) (void *),
 
     // Add simple command into postfix array
     add_to_postfix(buffer);
-    
+
     //printf("THIS IS THE BUFFER ADDED TO POSTFIX");
+    //print_cstring(buffer);
+    
+
+    //printf("THIS IS THE BUFFER ADDDED TO POSTFIX");
     //print_cstring(buffer);
     
 
