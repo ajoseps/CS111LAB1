@@ -1,3 +1,5 @@
 #! /bin/sh
+#test1
 
-echo "hello" ; mkdir hello  
+echo "123"
+echo "hello" ; mkdir hello ; echo "\#" #test2

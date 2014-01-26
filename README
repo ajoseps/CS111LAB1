@@ -1,10 +1,4 @@
-CS111 Lab 1A
+This is a skeleton for CS 111 Lab 1.
 
-Arun Joseph (804-004-769)
-Nathan Tung (004-059-195)
-
-Demonstrates basic parsing capabilities meant to faciliate writing/reading the command_t and command_stream_t structs.
-Utilizes stack (from http://www.cs.bu.edu/teaching/c/stack/array/) and postfix to implement the command structs.
-
-Fails make check, had to comment out command from make-dist to allow make dist to succesfully run
-
+Replace this README file with notes on your implementation.
+Mentions any special features or limitations.

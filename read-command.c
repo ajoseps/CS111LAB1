@@ -5,49 +5,60 @@
 
 #include <error.h>
 
-//custom includes
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
+//CUSTOM INCLUDES
 #include "alloc.h"
-#include "stack.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
 
+#define NULL_TERMINATOR '\0'
+#define SPACE ' '
+#define QUOTE '\"'
+#define AMPER '&'
+#define GREATER '>'
+#define LESSER '<'
+#define PIPE '|'
+#define SEMICOLON ';'
+#define COLON ':'
+#define POUND '#'
+#define OPEN_P '('
+#define CLOSE_P ')'
+#define NEWLINE '\n'
+
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 
-void free_buff(char*, int*);
-void print_cstring(char*, int);
-int precedence_value(char*);
-bool precedence(char*, char*);
-bool check_if_space(char);
-bool add_to_buff_filtered(char*, char, int*, int*);
-void add_to_buff_unfiltered(char*, char, int*, int*);
-bool check_if_nonsimple(char);
-bool check_if_open_paren(char);
-bool check_if_closed_paren(char);
-bool infix_to_postfix(char*, char*);
-void add_to_postfix(char*);
-void add_to_array(char**, char*, int*);
-
-// Globals
-char *postfix[100];
-int pfIndex=0;
-
-stackT opStack;
-
-
-//Command Stream
-
-struct command_stream
-{
-    command_t* prev_command;
-    command_t* curr_command;
-    command_t* next_command;
+enum token_type {
+  AND_T,         // A && B
+  SEQUENCE_T,    // A ; B
+  OR_T,          // A || B
+  PIPE_T,        // A | B
+  REGULAR_T,      // A token that is not a special symbol
+  OPEN_PARENS_T,  // (
+  CLOSE_PARENS_T, // )
+  NULL_T,        // \0
+  GREATER_T,     // >
+  LESS_T,       // <
+  QUOTE_T,      // "
+  COMMENT_T     // #
 };
+
+typedef struct{
+  char* buffer;
+  int size;
+  enum token_type type;
+} token_t;
+
+token_t
+get_token(int (*get_next_byte) (void *),
+        void *get_next_byte_argument);
+
+void 
+print_token(token_t token);
 
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
@@ -56,153 +67,12 @@ make_command_stream (int (*get_next_byte) (void *),
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
-  //printf("MAKING A COMMAND\n");
-
-  //TESTING VARS
-  int i;
-  int loops=0;
-
-  // Initializes Stack
-  StackInit(&opStack, 100);
-
-  // Creates Buffer
-  int c, prevC;
-  int curr_size = sizeof(char) * 50;
-  int op_size = sizeof(char) * 4;
-  char *buffer = checked_malloc( curr_size );
-  char *op_buff = checked_malloc( op_size );
-  int index = 0;
-  int op_index = 0;
-	bool prevEscape, prevQuote;
-	bool addedToBuff;
-
-	do {
-    // For simple commands
-		do {
-			c=(*get_next_byte)(get_next_byte_argument);
-
-      // For filtering out comments
-      // If # is preceded by NULL, space, or new line
-      // We omit that line from the buffer
-      if(c=='#' && (prevC=='\0' || prevC==' ' || prevC=='\n'))
-      {
-        do
-        {
-          c=(*get_next_byte)(get_next_byte_argument);
-        } while(c!='\n');
-        c=(*get_next_byte)(get_next_byte_argument);
-      }
-
-      // For command substrings in quotes
-      // Place entire quoted substring into buffer
-			if(c=='\"')
-	    {
-        //printf("ENTERED QUOTES\n");
-        //printf("ADDED %c TO BUFF \n", c);
-				add_to_buff_unfiltered(buffer,c,&index,&curr_size);
-		    c=(*get_next_byte)(get_next_byte_argument);
-		    do {
-		      prevEscape=false;
-		      prevQuote=false;
-          //printf("ADDED %c TO BUFF \n", c);
-		      add_to_buff_unfiltered(buffer,c,&index,&curr_size);
-		      if(c=='\\')
-		      {
-			      prevEscape=true;
-		      }
-		      else if(c=='\"')
-		      {
-			      prevQuote=true;
-		      }
-		      c=(*get_next_byte)(get_next_byte_argument);
-		    } while(prevEscape || !prevQuote);
-        //printf("EXITED QUOTES\n");
-	    }
-      //printf("INDEX IS: %d \n", index);
-	    addedToBuff=add_to_buff_filtered(buffer,c,&index,&curr_size);
-      //print_cstring(buffer);
-	  } while(addedToBuff && c != EOF);
-      printf("\nPRINTING OUT BUFFER: \n");
-      print_cstring(buffer, index);
-
-	  
-    // For non-simple commands
-    // At this point, c contains a non-simple command or a portion of it
-    add_to_buff_unfiltered(op_buff, c, &op_index, &op_size);
-    //printf("\nNONSIMPLE IS REACHED\n");
-    prevC = c;
-		c=(*get_next_byte)(get_next_byte_argument);
-    if(!check_if_space(c))
-    {
-      if(prevC == c)
-      {
-        add_to_buff_unfiltered(op_buff, c, &op_index, &op_size);
-      }
-      else
-      {
-        printf("PREVC: %c|\n", prevC);
-        printf("C: %c|\n", c);
-        error(1, 0, "invalid non-simple command");
-        return 0;
-      }
-    }
-    
-    // Track previous char to tell whether next # is comment or not
-    prevC=c;
-
-    // Add simple command into postfix array
-    add_to_postfix(buffer);
-
-    //printf("THIS IS THE BUFFER ADDED TO POSTFIX");
-    //print_cstring(buffer);
-    
-
-    //printf("THIS IS THE BUFFER ADDDED TO POSTFIX");
-    //print_cstring(buffer);
-    
-
-    // Push operator into op buffer (if empty)
-    if(StackIsEmpty(&opStack))
-    {
-      StackPush(&opStack, op_buff);
-    }
-    // If stack is not empty, pop operators according to precedence
-    else
-    {
-      char* lastStackElement = StackPop(&opStack);
-      if(check_if_closed_paren(*lastStackElement))
-      {
-        while(!check_if_open_paren(*lastStackElement) && !StackIsEmpty(&opStack))
-        {
-          add_to_postfix(lastStackElement);
-          lastStackElement = StackPop(&opStack);
-        }
-      }
-      else if(precedence(lastStackElement, op_buff))
-      {
-        while(precedence(lastStackElement, op_buff) && !StackIsEmpty(&opStack))
-        {
-          add_to_postfix(lastStackElement);
-          lastStackElement = StackPop(&opStack);
-        }
-      }
-      else
-      {
-        StackPush(&opStack, lastStackElement);
-      }
-      StackPush(&opStack, op_buff);
-    }
-    free_buff(buffer, &index);
-    free_buff(op_buff, &op_index);
-    //printf("MEMORY FREED. BUFFER INDEX IS %d, OPBUFF INDEX IS %d\n", index, op_index);
-    //printf("END OF ITERATION\n");
-	} while (c!=EOF);
-
-  for( i = 0; i <= pfIndex; i++)
-  {
-    print_cstring(postfix[i],sizeof(postfix[i])-1);
-  }
-
+  token_t token;
+  do{
+    token = get_token(get_next_byte, get_next_byte_argument);
+    print_token(token);
+  }while(*token.buffer != EOF);
+  error (1, 0, "command reading not yet implemented");
   return 0;
 }
 
@@ -214,187 +84,121 @@ read_command_stream (command_stream_t s)
   return 0;
 }
 
-// HELPER FUNCTIONS
 
-void free_buff(char* buff, int* index)
+bool 
+is_special_char(char c);
+
+token_t 
+get_token(int (*get_next_byte) (void *),
+        void *get_next_byte_argument)
 {
-  int i;
-  for(i = 0; i <= *index ; i++)
-  {
-    *buff = '\0';
-    buff++;
-  }
-  *index = 0;
+  int curr_size=sizeof(char)*50;
+  int index=0;
+  char* buffer = checked_malloc( curr_size );
+  int c;
+  // FLAGS
+  bool quotes = false;
+  bool comments = false;
+
+  do {
+    c=(*get_next_byte)(get_next_byte_argument);
+    
+    // RESIZING
+    if(index == curr_size)
+    {
+      curr_size += sizeof(char) * 25;
+      buffer = checked_realloc(buffer, curr_size);
+    }
+
+    // IF A SPACE IS FOUND
+    if(c == SPACE && quotes == false && comments == false)
+    {
+      break;
+    }
+
+    // IF A SPECIAL CHARACTER IS FOUND
+    if(is_special_char(c) == true && quotes == false && comments == false)
+    {
+      get_next_byte_argument--;  
+      break;
+    }
+
+    // START OF QUOTE
+    if(c == QUOTE && quotes == false && comments == false)
+    {
+      quotes = true;
+    }
+    // END OF QUOTE
+    else if(c == QUOTE && quotes == true) 
+    {
+      buffer[index] = c;
+      index++;
+      break;
+    }
+
+    // START OF COMMENT
+    if(c == POUND && comments == false)
+    {
+      comments = true;
+    }
+    // END OF COMMENT
+    else if(c == NEWLINE && comments == true)
+    {
+      break;
+    }
+
+    buffer[index] = c;
+    index++;
+  } while(c!=NULL_TERMINATOR && c!= EOF);
+
+  token_t token;
+  token.size = index + 1;
+  token.type = REGULAR_T; 
+  token.buffer = checked_malloc( token.size );
+  memcpy(token.buffer, buffer, (size_t)token.size);
+
+  return token;
 }
 
-// Prints out cstring to stdout
-void print_cstring(char* cstring, int index)
+// Prints out the contents of the token's buffer
+void 
+print_token(token_t token)
 {
-  int c = *cstring;
+  char *buffer = token.buffer;
+  int c = *buffer;
   int i;
-  for(i = 0; i < index ; i++)
+  for(i = 0; i < token.size - 1; i++)
   {
     printf("%c", c);
-    c = *++cstring;
+    c= *++buffer;
   }
+  printf("\n");
 }
 
-// Compares two non-simple commands to see if ns1 has greater than or equal precedence to ns2
-bool precedence(char* ns1, char* ns2)
-{
-  int nsVal1 = precedence_value(ns1);
-  int nsVal2 = precedence_value(ns2);
-
-  if(nsVal1 >= nsVal2)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-// Assigns a precedence value to nonsimple commands
-// MIGHT NOT WORK DUE TO STRING COMPARISON
-int precedence_value(char* nonsimple)
-{
-  if(strcmp(nonsimple, "&&") == 0 || strcmp(nonsimple, "||") == 0)
-  {
-    return 2;
-  }
-  else if(strcmp(nonsimple, "|") == 0 || strcmp(nonsimple, ";") == 0)
-  {
-    return 1;
-  }
-  else if(strcmp(nonsimple, ">") == 0 || strcmp(nonsimple, "<") == 0 ||
-          strcmp(nonsimple, "(") == 0 || strcmp(nonsimple, ")") == 0)
-  {
-    return 0;
-  }
-
-  return -1;
-}
-
-// Adds a cstring element to the specified array
-void add_to_array(char** arr, char* element, int* index)
-{
-  int i,tmpIndex;
-  char* tmp = NULL;
-  int arrSize = sizeof(arr);
-  if(*index==arrSize)
-  {
-    char** newArr = checked_malloc( arrSize + 50 );
-    for(i = 0; i < arrSize; i++)
-    {
-      strcpy(tmp, arr[i]);
-      newArr[i] = tmp;
-    }
-    arr = newArr;
-  }
-
-  tmp = checked_malloc( sizeof(element) );
-  strcpy(tmp, element);
-  arr[*index] = tmp;
-
-  *index++;
-  //(*index)++;
-  //tmpIndex = *index;
-  //*index = tmpIndex+1;
-}
-
-// Adds specified cstring element to the postfix array
-void add_to_postfix(char* element)
-{
-  add_to_array(postfix, element, &pfIndex);
-}
-
-// Converts infix to postfix
-bool infix_to_postfix(char* simple, char* op)
-{
-  add_to_postfix(simple);
-
-  if(StackIsEmpty(&opStack))
-  {
-    // Operator pushed into opStack successfully
-    StackPush(&opStack, op);
-    return true;
-  }
-  // opStack was not empty, so operator not pushed
-  return false;
-}
-
-// Checks if c contains a space
-bool check_if_space(char c)
-{
-  if(c == ' ')
-    return true;
-  else
-    return false;
-}
-
-// Adds c to buffer if c is non-simple else returns false
-bool add_to_buff_filtered(char* buff, char c, int* index, int* curr_size)
-{
-  if(check_if_nonsimple(c))
-  {
-    return false;
-  }
-  else
-  {
-    add_to_buff_unfiltered(buff, c, index, curr_size);
-    return true;
-  }
-}
-
-// Adds c to buffer
-void add_to_buff_unfiltered(char* buff, char c, int* index, int* curr_size)
-{
-  int tmp;
-  //printf("PRINTING CHAR: %c AT INDEX: %d, WITH CURR SIZE: %d\n", c, *index, *curr_size);
-  if(*index == *curr_size)
-  {
-    *curr_size += sizeof(char) * 25;
-    buff = checked_realloc(buff, *curr_size);
-  }
-  buff[*index] = c;
-  tmp = *index;
-  tmp++;
-  *index = tmp;
-}
-
-// Checks if character is a or part of a non-simple command
-bool check_if_nonsimple(char c)
+// Returns true if c contains a special character, false otherwise
+// DOES NOT CONTAIN QUOTE AND SPACE AND POUND
+bool 
+is_special_char(char c)
 {
   switch(c)
   {
-    case '|':
-    case '&':
-    case ';':
-    case '(':
-    case ')':
-    case '>':
-    case '<':
+    case OPEN_P:
+    case CLOSE_P:
+    case SEMICOLON:
+    case COLON:
+    case PIPE:
+    case AMPER:
+    case LESSER:
+    case GREATER:
       return true;
     default:
       return false;
   }
 }
 
-// Checks if character is an open paranthesis
-bool check_if_open_paren(char c)
+/*
+void
+set_token_type(token_t &token)
 {
-  if(c == '(')
-    return true;
-  else
-    return false;
-}
 
-// Checks if character is a closed paranthesis
-bool check_if_closed_paren(char c)
-{
-  if(c == ')')
-    return true;
-  else
-    return false;
-}
+}*/
