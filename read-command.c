@@ -28,6 +28,7 @@
 #define OPEN_P '('
 #define CLOSE_P ')'
 #define NEWLINE '\n'
+#define TAB '\t'
 
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
@@ -70,7 +71,12 @@ make_command_stream (int (*get_next_byte) (void *),
   token_t token;
   do{
     token = get_token(get_next_byte, get_next_byte_argument);
-    print_token(token);
+
+    char *buffer = token.buffer;
+    int c = *buffer;
+
+    if(c!=NULL_TERMINATOR && c!=SPACE && c!=TAB && c!=NEWLINE && c!=EOF)
+      print_token(token);
   }while(*token.buffer != EOF);
   error (1, 0, "command reading not yet implemented");
   return 0;
