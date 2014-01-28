@@ -99,6 +99,8 @@ get_token(int (*get_next_byte) (void *),
   // FLAGS
   bool quotes = false;
   bool comments = false;
+  bool first = true;
+  bool second = true;
 
   do {
     c=(*get_next_byte)(get_next_byte_argument);
@@ -109,46 +111,63 @@ get_token(int (*get_next_byte) (void *),
       curr_size += sizeof(char) * 25;
       buffer = checked_realloc(buffer, curr_size);
     }
-
-    // IF A SPACE IS FOUND
-    if(c == SPACE && quotes == false && comments == false)
+    
+    // IF FIRST CHARACTER IS SPECIAL
+    if(is_special_char(c) == true && (first == true || second == true))
     {
-      break;
-    }
-
-    // IF A SPECIAL CHARACTER IS FOUND
-    if(is_special_char(c) == true && quotes == false && comments == false)
-    {
-      get_next_byte_argument--;  
-      break;
-    }
-
-    // START OF QUOTE
-    if(c == QUOTE && quotes == false && comments == false)
-    {
-      quotes = true;
-    }
-    // END OF QUOTE
-    else if(c == QUOTE && quotes == true) 
-    {
+      if(first)
+      {
+        first = false;
+      }
+      else if(second)
+      {
+        second = false;
+      }
       buffer[index] = c;
       index++;
-      break;
     }
-
-    // START OF COMMENT
-    if(c == POUND && comments == false)
+    else
     {
-      comments = true;
-    }
-    // END OF COMMENT
-    else if(c == NEWLINE && comments == true)
-    {
-      break;
-    }
+      // IF A SPACE IS FOUND
+      if(c == SPACE && quotes == false && comments == false)
+      {
+        break;
+      }
 
-    buffer[index] = c;
-    index++;
+      // IF A SPECIAL CHARACTER IS FOUND
+      if(is_special_char(c) == true && quotes == false && comments == false)
+      {
+        get_next_byte_argument--;  
+        break;
+      }
+
+      // START OF QUOTE
+      if(c == QUOTE && quotes == false && comments == false)
+      {
+        quotes = true;
+      }
+      // END OF QUOTE
+      else if(c == QUOTE && quotes == true) 
+      {
+        buffer[index] = c;
+        index++;
+        break;
+      }
+
+      // START OF COMMENT
+      if(c == POUND && comments == false)
+      {
+        comments = true;
+      }
+      // END OF COMMENT
+      else if(c == NEWLINE && comments == true)
+      {
+        break;
+      }
+
+      buffer[index] = c;
+      index++;
+    }
   } while(c!=NULL_TERMINATOR && c!= EOF);
 
   token_t token;
