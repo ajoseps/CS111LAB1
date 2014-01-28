@@ -11,13 +11,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <ctype.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
 
 #define NULL_TERMINATOR '\0'
-#define EMPTY ''
 #define TAB '\t'
 #define SPACE ' '
 #define QUOTE '\"'
@@ -31,10 +29,12 @@
 #define OPEN_P '('
 #define CLOSE_P ')'
 #define NEWLINE '\n'
-#define TAB '\t'
 
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
+
+int hold_over_char; // this contains a holdover character from parsing e.g. a<b < would be the holdover since the parser
+              //  wouldn't know the existence of special character < until it hit it
 
 enum token_type {
   AND_T,         // A && B
@@ -57,57 +57,9 @@ typedef struct{
   enum token_type type;
 } token_t;
 
-struct command_stream{
-  struct command_node *head;
-  struct command_node *tail;
-  struct command_node *curr;
-};
-
-typedef struct command_node{
-  command_t command;
-  struct command_node *next;
-  struct command_node *prev;
-} command_node_t;
-
-// command_stream_t functions
-command_stream_t command_stream_init()
-{
-  command_stream_t cs_t = checked_malloc(sizeof(struct command_stream));
-  cs_t->head = NULL;
-  cs_t->tail = NULL;
-  cs_t->curr = NULL;
-  return cs_t;
-}
-
-bool command_stream_add(command_stream_t command_s, command_t command)
-{
-  command_node_t *cs_node = checked_malloc(sizeof(struct command_node));
-  cs_node->next = NULL;
-  cs_node->prev = NULL;
-  cs_node->command = command;
-
-  if(command_s->head == NULL)
-  {
-    command_s->head = cs_node;
-    command_s->tail = cs_node;
-    command_s->curr = cs_node;
-  }
-  else
-  {
-    ((command_node_t*)(command_s->tail))->next = cs_node;
-    cs_node->prev = command_s->tail;
-    command_s->tail = cs_node;
-    command_s->curr = cs_node;
-  }
-  return true;
-}
-
-command_t
-make_command(token_t token);
-
-token_t
+void
 get_token(int (*get_next_byte) (void *),
-        void *get_next_byte_argument);
+        void *get_next_byte_argument, token_t *command, token_t *s_command);
 
 void 
 print_token(token_t token);
@@ -119,26 +71,15 @@ make_command_stream (int (*get_next_byte) (void *),
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
-  token_t token;
-  command_stream_t command_stream = command_stream_init();
-
-  int index = 0;
+  token_t command;
+  token_t special_command;
   do{
-      token = get_token(get_next_byte, get_next_byte_argument);
-
-      char* buffer = token.buffer;
-      int c = *buffer;
-      
-      if(isgraph(c))
-      {
-        //print_token(token);
-        command_t command = make_command(token);
-        command_stream_add(command_stream, command);
-
-      }
-  }while(*token.buffer != EOF);
-  
-  return command_stream;
+    get_token(get_next_byte, get_next_byte_argument, &command, &special_command);
+    print_token(command);
+    print_token(special_command);
+  }while(*(command.buffer) != EOF);
+  error (1, 0, "command reading not yet implemented");
+  return 0;
 }
 
 command_t
@@ -149,76 +90,33 @@ read_command_stream (command_stream_t s)
   return 0;
 }
 
-command_t
-make_command(token_t token)
-{
-  command_t command = checked_malloc(sizeof(struct command));
-  char *buffer = token.buffer;
-  int c = *buffer;
-  int i;
-
-  if(strcmp(buffer,"&&")==0)
-  {
-    printf("AND"); 
-    //command->u.command = buffer; // (command *)checked_malloc(sizeof(struct command));
-    command->type=AND_COMMAND;
-  }
-  else if(strcmp(buffer,"||")==0)
-  {
-    printf("OR");
-    command->type=OR_COMMAND;
-  }
-  else if(strcmp(buffer,";")==0)
-  {
-    printf("SEMICOLON");
-    command->type=SEQUENCE_COMMAND;
-  }
-  else if(strcmp(buffer,"|")==0)
-  {
-    printf("PIPE");
-    command->type=PIPE_COMMAND;
-  }
-  else
-  {
-    command->type=SIMPLE_COMMAND;
-    //(*command->u.word) = buffer;
-
-    for(i = 0; i < token.size - 1; i++)
-    {
-      printf("%c", c);
-      c= *++buffer;
-    }
-  }
-  printf("\n");
-
-  command->status = -1;
-  return command;
-}
 
 bool 
 is_special_char(char c);
 
-token_t 
+void
 get_token(int (*get_next_byte) (void *),
-        void *get_next_byte_argument)
+        void *get_next_byte_argument, token_t *command, token_t *s_command)
 {
+  // Regular command buffer
   int curr_size=sizeof(char)*50;
   int index=0;
   char* buffer = checked_malloc( curr_size );
+
+  // Special command buffer
+  int s_curr_size=sizeof(char)*50;
+  int s_index=0;
+  char* s_buffer = checked_malloc( s_curr_size );
+
   int c;
   // FLAGS
   bool quotes = false;
   bool comments = false;
   bool first = true;
-  bool second = false;
+  bool second = true;
 
   do {
     c=(*get_next_byte)(get_next_byte_argument);
-
-    if(c == NEWLINE)
-    {
-      break;
-    }
     
     // RESIZING
     if(index == curr_size)
@@ -226,43 +124,71 @@ get_token(int (*get_next_byte) (void *),
       curr_size += sizeof(char) * 25;
       buffer = checked_realloc(buffer, curr_size);
     }
-    
-    // IF FIRST CHARACTER IS SPECIAL
-    if(first == true && is_special_char(c))
+    if(s_index == curr_size)
     {
+      s_curr_size += sizeof(char) * 25;
+      s_buffer = checked_realloc(s_buffer, s_curr_size );
+    }
+
+    if(is_special_char(c) && comments == false) // special commands go in special_command
+    {
+      s_buffer[index] = c;
+      s_index++;
+    }
+    else // regular commands go in command
+    {
+      // START OF COMMENT
+      if(c == POUND && comments == false)
+      {
+        comments = true;
+      }
+      // END OF COMMENT
+      else if(c == NEWLINE && comments == true)
+      {
+        break;
+      }
+
       buffer[index] = c;
       index++;
-      second = true;
     }
-    else if(first == false && second == true)
+    
+    /*
+    // IF FIRST CHARACTER IS SPECIAL
+    // Has the first and second flags to account for 
+    if(is_special_char(c) == true && (first == true || second == true))
     {
-        if(is_special_char(c))
-        {
-          buffer[index] = c;
-          index++;
-          second = false;
-          break;
-        }
-        else
-        {
-          ungetc(c,get_next_byte_argument);
-          second = false;
-          break;
-        }
+      if(first)
+      {
+        first = false;
+      }
+      else if(second)
+      {
+        second = false;
+      }
+      buffer[index] = c;
+      index++;
+      command = false;
     }
     else
     {
-      second = false;
+      command = true;
+
       // IF A SPACE IS FOUND
-      if(c == SPACE && quotes == false && comments == false)
+      if((c == SPACE || c == TAB) && quotes == false && comments == false && command == false)
       {
         break;
+      }
+      else if((c == SPACE || c == TAB) && quotes == false && comments == false && command == true)
+      {
+        buffer[index] = c;
+        index++;
+        continue;
       }
 
       // IF A SPECIAL CHARACTER IS FOUND
       if(is_special_char(c) == true && quotes == false && comments == false)
       {
-        ungetc(c,get_next_byte_argument);
+        get_next_byte_argument--;  
         break;
       }
 
@@ -292,17 +218,20 @@ get_token(int (*get_next_byte) (void *),
 
       buffer[index] = c;
       index++;
-    }
-    first = false;
-  } while(c!=NEWLINE && c!=NULL_TERMINATOR && c!= EOF);
+    }*/
+  } while(c!=NULL_TERMINATOR && c!= EOF);
 
-  token_t token;
-  token.size = index + 1;
-  token.type = REGULAR_T; 
-  token.buffer = checked_malloc( token.size );
-  memcpy(token.buffer, buffer, (size_t)token.size);
+  command->size = index + 1;
+  command->type = REGULAR_T; 
+  command->buffer = checked_malloc( command->size );
+  memcpy(command->buffer, buffer, (size_t)command->size);
 
-  return token;
+  
+  s_command->size = s_index + 1;
+  s_command->type = REGULAR_T; 
+  s_command->buffer = checked_malloc( s_command->size );
+  memcpy(command->buffer, s_buffer, (size_t)s_command->size);
+  // return token;
 }
 
 // Prints out the contents of the token's buffer
@@ -330,6 +259,7 @@ is_special_char(char c)
     case OPEN_P:
     case CLOSE_P:
     case SEMICOLON:
+    case COLON:
     case PIPE:
     case AMPER:
     case LESSER:
