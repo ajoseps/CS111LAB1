@@ -11,11 +11,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
 
 #define NULL_TERMINATOR '\0'
+#define EMPTY ''
+#define TAB '\t'
 #define SPACE ' '
 #define QUOTE '\"'
 #define AMPER '&'
@@ -53,6 +56,51 @@ typedef struct{
   enum token_type type;
 } token_t;
 
+struct command_stream{
+  struct command_node *head;
+  struct command_node *tail;
+  struct command_node *curr;
+};
+
+typedef struct command_node{
+  command_t command;
+  struct command_node *next;
+  struct command_node *prev;
+} command_node_t;
+
+// command_stream_t functions
+command_stream_t command_stream_init()
+{
+  command_stream_t cs_t = checked_malloc(sizeof(command_stream_t));
+  cs_t->head = NULL;
+  cs_t->tail = NULL;
+  cs_t->curr = NULL;
+  return cs_t;
+}
+
+bool command_stream_add(command_stream_t command_s, command_t command)
+{
+  command_node_t *cs_node = checked_malloc(sizeof(command_node_t));
+  cs_node->next = NULL;
+  cs_node->prev = NULL;
+  cs_node->command = command;
+
+  if(command_s->head == NULL)
+  {
+    command_s->head = cs_node;
+    command_s->tail = cs_node;
+    command_s->curr = cs_node;
+  }
+  else
+  {
+    ((command_node_t*)(command_s->tail))->next = cs_node;
+    cs_node->prev = command_s->tail;
+    command_s->tail = cs_node;
+    command_s->curr = cs_node;
+  }
+  return true;
+}
+
 token_t
 get_token(int (*get_next_byte) (void *),
         void *get_next_byte_argument);
@@ -68,9 +116,19 @@ make_command_stream (int (*get_next_byte) (void *),
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
   token_t token;
+  command_stream_t command_stream = command_stream_init();
+
+  int index = 0;
   do{
-    token = get_token(get_next_byte, get_next_byte_argument);
-    print_token(token);
+      token = get_token(get_next_byte, get_next_byte_argument);
+
+      char* buffer = token.buffer;
+      int c = *buffer;
+
+      if(isgraph(c))
+      {
+        print_token(token);
+      }
   }while(*token.buffer != EOF);
   error (1, 0, "command reading not yet implemented");
   return 0;
@@ -104,6 +162,11 @@ get_token(int (*get_next_byte) (void *),
 
   do {
     c=(*get_next_byte)(get_next_byte_argument);
+
+    if(c == NEWLINE)
+    {
+      break;
+    }
     
     // RESIZING
     if(index == curr_size)
@@ -215,7 +278,6 @@ is_special_char(char c)
     case OPEN_P:
     case CLOSE_P:
     case SEMICOLON:
-    case COLON:
     case PIPE:
     case AMPER:
     case LESSER:
