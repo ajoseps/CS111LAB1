@@ -100,7 +100,7 @@ get_token(int (*get_next_byte) (void *),
   bool quotes = false;
   bool comments = false;
   bool first = true;
-  bool second = true;
+  bool second = false;
 
   do {
     c=(*get_next_byte)(get_next_byte_argument);
@@ -113,21 +113,31 @@ get_token(int (*get_next_byte) (void *),
     }
     
     // IF FIRST CHARACTER IS SPECIAL
-    if(is_special_char(c) == true && (first == true || second == true))
+    if(first == true && is_special_char(c))
     {
-      if(first)
-      {
-        first = false;
-      }
-      else if(second)
-      {
-        second = false;
-      }
       buffer[index] = c;
       index++;
+      second = true;
+    }
+    else if(first == false && second == true)
+    {
+        if(is_special_char(c))
+        {
+          buffer[index] = c;
+          index++;
+          second = false;
+          break;
+        }
+        else
+        {
+          ungetc(c,get_next_byte_argument);
+          second = false;
+          break;
+        }
     }
     else
     {
+      second = false;
       // IF A SPACE IS FOUND
       if(c == SPACE && quotes == false && comments == false)
       {
@@ -137,7 +147,7 @@ get_token(int (*get_next_byte) (void *),
       // IF A SPECIAL CHARACTER IS FOUND
       if(is_special_char(c) == true && quotes == false && comments == false)
       {
-        get_next_byte_argument--;  
+        ungetc(c,get_next_byte_argument);
         break;
       }
 
@@ -168,7 +178,8 @@ get_token(int (*get_next_byte) (void *),
       buffer[index] = c;
       index++;
     }
-  } while(c!=NULL_TERMINATOR && c!= EOF);
+    first = false;
+  } while(c!=NEWLINE && c!=NULL_TERMINATOR && c!= EOF);
 
   token_t token;
   token.size = index + 1;
