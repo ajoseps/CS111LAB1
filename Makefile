@@ -15,11 +15,11 @@ TIMETRASH_SOURCES = \
   execute-command.c \
   main.c \
   read-command.c \
-  print-command.c
+  print-command.c 
 TIMETRASH_OBJECTS = $(subst .c,.o,$(TIMETRASH_SOURCES))
 
 DIST_SOURCES = \
-  $(TIMETRASH_SOURCES) alloc.h command.h command-internals.h Makefile \
+  $(TIMETRASH_SOURCES) alloc.h command.h command-internals.h  Makefile \
   $(TESTS) check-dist README
 
 timetrash: $(TIMETRASH_OBJECTS)
@@ -34,7 +34,7 @@ dist: $(DISTDIR).tar.gz
 $(DISTDIR).tar.gz: $(DIST_SOURCES) check-dist
 	rm -fr $(DISTDIR)
 	tar -czf $@.tmp --transform='s,^,$(DISTDIR)/,' $(DIST_SOURCES)
-	./check-dist $(DISTDIR)
+	#./check-dist $(DISTDIR)
 	mv $@.tmp $@
 
 check: $(TEST_BASES)

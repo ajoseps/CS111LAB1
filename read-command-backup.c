@@ -36,65 +36,6 @@
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 
-// stacks/arrays for postfix evaluation
-
-// ALL STACK FUNCTIONS ARE REPURPOSED FROM THE INCLUDED STACK FILES THAT WERE TAKEN FROM
-// Robert I. Pitts <rip@cs.bu.edu>
-
-typedef struct{
-  command_t *contents;
-  int maxSize;
-  int top;
-}stackT;
-
-void StackInit(stackT *stackP, int maxSize)
-{
-  command_t* newContents;
-
-  newContents = (command_t*)checked_malloc(sizeof(command_t) * maxSize);
-
-  if(newContents == NULL)
-  {
-    fprintf(stderr, "insufficent memory");
-    exit(1);
-  }
-  stackP->contents=newContents;
-  stackP->maxSize = maxSize;
-  stackP->top = -1;
-}
-
-void StackDestroy(stackT *stackP)
-{
-  free(stackP->contents);
-  stackP->contents=NULL;
-  stackP->maxSize=0;
-  stackP->top=-1;
-}
-
-int StackIsEmpty(stackT *stackP)
-{
-  return stackP->top < 0;
-}
-
-int StackIsFull(stackT *stackP)
-{
-  return stackP->top >= stackP->maxSize -1;
-}
-
-void StackPush(stackT *stackP, command_t element)
-{
-  if(StackIsFull(stackP))
-  {
-    fprintf(stderr, "Can't push element on stack: stack is full \n");
-    exit(1);
-  }
-  stackP->contents[++stackP->top] = element;
-}
-
-stackT opStack;
-command_t *postfix[100];
-int pfIndex=0;
-
 enum token_type {
   AND_T,         // A && B
   SEQUENCE_T,    // A ; B
@@ -127,7 +68,6 @@ typedef struct command_node{
   struct command_node *next;
   struct command_node *prev;
 } command_node_t;
-
 
 // command_stream_t functions
 command_stream_t command_stream_init()
@@ -179,31 +119,23 @@ make_command_stream (int (*get_next_byte) (void *),
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
-  StackInit(&opStack, 500);
   token_t token;
   command_stream_t command_stream = command_stream_init();
 
   int index = 0;
   do{
-    command_t command;
-    do{
       token = get_token(get_next_byte, get_next_byte_argument);
 
       char* buffer = token.buffer;
       int c = *buffer;
-
+      
       if(isgraph(c))
       {
         //print_token(token);
-        command = make_command(token);
-        //command_stream_add(command_stream, command);
+        command_t command = make_command(token);
+        command_stream_add(command_stream, command);
+
       }
-      else if(c == NEWLINE)
-      {
-        break;
-      }
-    }while(*token.buffer != EOF);
-    command_stream_add(command_stream, command);
   }while(*token.buffer != EOF);
   
   return command_stream;
@@ -212,22 +144,9 @@ make_command_stream (int (*get_next_byte) (void *),
 command_t
 read_command_stream (command_stream_t s)
 {
-  if(s->head == NULL)
-  {
-    //there are no commands in stream
-    error(1, 0, "command stream is empty");
-    return 0;
-  }
-  else
-  {
-    command_node_t *tmp = s->head;
-    s->head = s->head->next;
-    
-    command_t currCommand = tmp->command;
-    free(tmp);
-    return currCommand;
-  }
-
+  /* FIXME: Replace this with your implementation too.  */
+  error (1, 0, "command reading not yet implemented");
+  return 0;
 }
 
 command_t
@@ -241,6 +160,7 @@ make_command(token_t token)
   if(strcmp(buffer,"&&")==0)
   {
     printf("AND"); 
+    //command->u.command = buffer; // (command *)checked_malloc(sizeof(struct command));
     command->type=AND_COMMAND;
   }
   else if(strcmp(buffer,"||")==0)
@@ -258,15 +178,10 @@ make_command(token_t token)
     printf("PIPE");
     command->type=PIPE_COMMAND;
   }
-  else if(strcmp(buffer,"(")==0 || strcmp(buffer,")")==0)
-  {
-    printf("PARENTHESIS");
-    command->type=SUBSHELL_COMMAND;
-  }
   else
   {
     command->type=SIMPLE_COMMAND;
-    command->u.word = &buffer;
+    //(*command->u.word) = buffer;
 
     for(i = 0; i < token.size - 1; i++)
     {
