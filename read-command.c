@@ -91,7 +91,19 @@ void StackPush(stackT *stackP, command_t element)
   stackP->contents[++stackP->top] = element;
 }
 
+command_t StackPop(stackT *stackP)
+{
+  if(StackIsEmpty(stackP))
+  {
+    fprintf(stderr, "Can't pop, stack is empty");
+    exit(1);
+  }
+  return stackP->contents[stackP->top--];
+}
+
 stackT opStack;
+stackT evalStack;
+int pfSize=100;
 command_t *postfix[100];
 int pfIndex=0;
 
@@ -172,20 +184,35 @@ get_token(int (*get_next_byte) (void *),
 void 
 print_token(token_t token);
 
+void 
+concat_buffs(char* dest, char* src);
+
+void
+add_to_array(command_t** arr, command_t* element);
+
+void
+add_to_postfix(command_t* element);
+
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
 		     void *get_next_byte_argument)
 {
-  /* FIXME: Replace this with your implementation.  You may need to
+/* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
+printf("before opstack");
   StackInit(&opStack, 500);
   token_t token;
+printf("before init");
+
   command_stream_t command_stream = command_stream_init();
+
+printf("please reach this");
 
   int index = 0;
   do{
     command_t command;
+    bool lastSimple = false;
     do{
       token = get_token(get_next_byte, get_next_byte_argument);
 
@@ -194,9 +221,54 @@ make_command_stream (int (*get_next_byte) (void *),
 
       if(isgraph(c))
       {
-        //print_token(token);
+        printf("test\n");
         command = make_command(token);
-        //command_stream_add(command_stream, command);
+        printf("MADE COMMAND\n");
+        
+        if(command->type==SIMPLE_COMMAND)
+        {
+          printf("before last simple\n");
+          if(lastSimple)
+          {
+            printf("just in last simple\n");
+            command_t* tmp = postfix[pfIndex-1];
+            printf("just in last 1\n size of pfArray:%i",(int)sizeof(postfix));
+            char** tmp_buff = (*tmp)->u.word;
+            printf("just in last 2\n");
+            char** cmd_buff =  command->u.word;
+            printf("just before concat\n");
+            concat_buffs(*tmp_buff,*cmd_buff);
+            printf("concated buffs\n");
+          }
+          else
+          {
+            printf("adding to postfix\n");
+            lastSimple = true;
+            add_to_postfix(&command);
+          }          
+        }
+        else if(command->type==SUBSHELL_COMMAND)
+        {
+          printf("SIMPLE COMMAND\n");
+          lastSimple = false;
+        }
+        else //normal operator
+        {
+          printf("NORMAL OPERATOR\n");
+          lastSimple = false;
+
+          if(StackIsEmpty(&opStack))
+          {
+            StackPush(&opStack,command);
+          }
+          else
+          {
+            //pop into array until empty or something of higher precedence
+            StackPop(&opStack);
+          }
+        }
+
+
       }
       else if(c == NEWLINE)
       {
@@ -300,10 +372,10 @@ get_token(int (*get_next_byte) (void *),
   do {
     c=(*get_next_byte)(get_next_byte_argument);
 
-    if(c == NEWLINE)
-    {
-      break;
-    }
+    //if(c == NEWLINE)
+    //{
+      //break;
+    //}
     
     // RESIZING
     if(index == curr_size)
@@ -425,9 +497,69 @@ is_special_char(char c)
   }
 }
 
-/*
-void
-set_token_type(token_t &token)
+void 
+concat_buffs(char* dest, char* src)
 {
+  char* c_buff;
+  char* space_c = (char*) checked_malloc(1);
+  *space_c = SPACE;
+  size_t newSize = strlen(dest) + strlen(src) + 1;
+  c_buff = (char*)checked_malloc(newSize);
 
-}*/
+  strcpy(c_buff, dest);
+  strcat(c_buff, space_c);
+  strcat(c_buff, src);
+
+  printf("c_buff has everything atm\n");
+
+  //dest = (char*)checked_realloc((char*)dest, newSize);
+  dest = (char*)checked_realloc(dest, newSize);
+
+
+  printf("before memcpy\n");
+
+  memcpy(dest, c_buff,newSize);
+
+  printf("after memcpy\n");
+
+  free(c_buff);
+  free(space_c);
+}
+
+void
+add_to_array(command_t** arr, command_t* element)
+{
+  int i,tmpIndex;
+  command_t* tmp = NULL;
+  printf("BEFORE SIEZOF");
+  printf("AFTER SIZEOF");
+  if(pfIndex==pfSize)
+  {
+    printf("\nBEFORE LOOP");
+    command_t** newArr = checked_malloc( pfSize + 50);
+    for(i = 0; i < pfSize; i++)
+    {
+      printf("%i\n",i);
+      memcpy(tmp, arr[i], sizeof(struct command));
+      newArr[i] = tmp;
+    }
+    arr = newArr;
+  }
+  printf("ALLOCATING MEMORY\n");
+  tmp = checked_malloc( sizeof(struct command) );
+  printf("1\n");
+  memcpy(tmp, element, sizeof(struct command));
+  printf("2\n");
+  arr[pfIndex] = tmp;
+  printf("3\n");
+  pfIndex++;
+  printf("4\n");
+}
+
+void
+add_to_postfix(command_t* element)
+{
+  printf("IN ADD TO POSTFIX");
+  add_to_array(postfix, element);
+  printf("ADDED TO POSTFIX");
+}
