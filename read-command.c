@@ -174,8 +174,8 @@ bool command_stream_add(command_stream_t command_s, command_t command)
   return true;
 }
 
-command_t
-make_command(token_t token);
+void
+make_command(token_t token, command_t command);
 
 token_t
 get_token(int (*get_next_byte) (void *),
@@ -197,21 +197,15 @@ command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
 		     void *get_next_byte_argument)
 {
-/* FIXME: Replace this with your implementation.  You may need to
-     add auxiliary functions and otherwise modify the source code.
-     You can also use external functions defined in the GNU C Library.  */
-printf("before opstack");
   StackInit(&opStack, 500);
   token_t token;
-printf("before init");
 
   command_stream_t command_stream = command_stream_init();
-
-printf("please reach this");
 
   int index = 0;
   do{
     command_t command;
+    command = checked_malloc(sizeof(struct command));
     bool lastSimple = false;
     do{
       token = get_token(get_next_byte, get_next_byte_argument);
@@ -221,28 +215,60 @@ printf("please reach this");
 
       if(isgraph(c))
       {
-        printf("test\n");
-        command = make_command(token);
-        printf("MADE COMMAND\n");
-        
+// make_command
+        char *buffer = token.buffer;
+        int c = *buffer;
+        int i;
+
+        command->status = -1;
+        if(strcmp(buffer,"&&")==0)
+        {
+          printf("AND\n"); 
+          command->type=AND_COMMAND;
+        }
+        else if(strcmp(buffer,"||")==0)
+        {
+          printf("OR\n");
+          command->type=OR_COMMAND;
+        }
+        else if(strcmp(buffer,";")==0)
+        {
+          printf("SEMICOLON\n");
+          command->type=SEQUENCE_COMMAND;
+        }
+        else if(strcmp(buffer,"|")==0)
+        {
+          printf("PIPE\n");
+          command->type=PIPE_COMMAND;
+        }
+        else if(strcmp(buffer,"(")==0 || strcmp(buffer,")")==0)
+        {
+          printf("PARENTHESIS\n");
+          command->type=SUBSHELL_COMMAND;
+        }
+        else if(buffer[0] == '#')
+        {
+          continue;
+        }
+        else
+        {
+          command->type=SIMPLE_COMMAND;
+          command->u.word = &buffer;
+          printf("This is u.word in make_command: %s \n", *(command->u.word));
+        }
+//
         if(command->type==SIMPLE_COMMAND)
         {
-          printf("before last simple\n");
           if(lastSimple)
           {
-            printf("just in last simple\n");
             command_t* tmp = postfix[pfIndex-1];
-            printf("just in last 1\n size of pfArray:%i",(int)sizeof(postfix));
             char** tmp_buff = (*tmp)->u.word;
-            printf("just in last 2\n");
             char** cmd_buff =  command->u.word;
-            printf("just before concat\n");
             concat_buffs(*tmp_buff,*cmd_buff);
             printf("concated buffs\n");
           }
           else
           {
-            printf("adding to postfix\n");
             lastSimple = true;
             add_to_postfix(&command);
           }          
@@ -267,8 +293,6 @@ printf("please reach this");
             StackPop(&opStack);
           }
         }
-
-
       }
       else if(c == NEWLINE)
       {
@@ -302,56 +326,6 @@ read_command_stream (command_stream_t s)
 
 }
 
-command_t
-make_command(token_t token)
-{
-  command_t command = checked_malloc(sizeof(struct command));
-  char *buffer = token.buffer;
-  int c = *buffer;
-  int i;
-
-  if(strcmp(buffer,"&&")==0)
-  {
-    printf("AND"); 
-    command->type=AND_COMMAND;
-  }
-  else if(strcmp(buffer,"||")==0)
-  {
-    printf("OR");
-    command->type=OR_COMMAND;
-  }
-  else if(strcmp(buffer,";")==0)
-  {
-    printf("SEMICOLON");
-    command->type=SEQUENCE_COMMAND;
-  }
-  else if(strcmp(buffer,"|")==0)
-  {
-    printf("PIPE");
-    command->type=PIPE_COMMAND;
-  }
-  else if(strcmp(buffer,"(")==0 || strcmp(buffer,")")==0)
-  {
-    printf("PARENTHESIS");
-    command->type=SUBSHELL_COMMAND;
-  }
-  else
-  {
-    command->type=SIMPLE_COMMAND;
-    command->u.word = &buffer;
-
-    for(i = 0; i < token.size - 1; i++)
-    {
-      printf("%c", c);
-      c= *++buffer;
-    }
-  }
-  printf("\n");
-
-  command->status = -1;
-  return command;
-}
-
 bool 
 is_special_char(char c);
 
@@ -371,11 +345,6 @@ get_token(int (*get_next_byte) (void *),
 
   do {
     c=(*get_next_byte)(get_next_byte_argument);
-
-    //if(c == NEWLINE)
-    //{
-      //break;
-    //}
     
     // RESIZING
     if(index == curr_size)
@@ -510,17 +479,9 @@ concat_buffs(char* dest, char* src)
   strcat(c_buff, space_c);
   strcat(c_buff, src);
 
-  printf("c_buff has everything atm\n");
-
-  //dest = (char*)checked_realloc((char*)dest, newSize);
   dest = (char*)checked_realloc(dest, newSize);
 
-
-  printf("before memcpy\n");
-
   memcpy(dest, c_buff,newSize);
-
-  printf("after memcpy\n");
 
   free(c_buff);
   free(space_c);
@@ -531,11 +492,8 @@ add_to_array(command_t** arr, command_t* element)
 {
   int i,tmpIndex;
   command_t* tmp = NULL;
-  printf("BEFORE SIEZOF");
-  printf("AFTER SIZEOF");
   if(pfIndex==pfSize)
   {
-    printf("\nBEFORE LOOP");
     command_t** newArr = checked_malloc( pfSize + 50);
     for(i = 0; i < pfSize; i++)
     {
@@ -545,21 +503,14 @@ add_to_array(command_t** arr, command_t* element)
     }
     arr = newArr;
   }
-  printf("ALLOCATING MEMORY\n");
   tmp = checked_malloc( sizeof(struct command) );
-  printf("1\n");
   memcpy(tmp, element, sizeof(struct command));
-  printf("2\n");
   arr[pfIndex] = tmp;
-  printf("3\n");
   pfIndex++;
-  printf("4\n");
 }
 
 void
 add_to_postfix(command_t* element)
 {
-  printf("IN ADD TO POSTFIX");
   add_to_array(postfix, element);
-  printf("ADDED TO POSTFIX");
 }
